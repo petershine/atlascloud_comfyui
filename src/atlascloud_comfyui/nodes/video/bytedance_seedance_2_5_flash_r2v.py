@@ -6,18 +6,29 @@ from ..auth.atlas_client_node import AtlasClientHandle
 
 _DURATIONS = [-1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
 
+MODEL_ID_SEEDANCE_25_FLASH_R2V = "bytedance/seedance-2.5-flash/reference-to-video"
+MODEL_ID_SEEDANCE_25_R2V = "bytedance/seedance-2.5/reference-to-video"
+_MODELS = [MODEL_ID_SEEDANCE_25_FLASH_R2V, MODEL_ID_SEEDANCE_25_R2V]
+
 
 class AtlasSeedance25FlashReferenceToVideo:
     CATEGORY = "AtlasCloud/Video"
     FUNCTION = "run"
-    RETURN_TYPES = ("STRING", "STRING", "DICT")
-    RETURN_NAMES = ("video_url", "prediction_id", "payload")
+    RETURN_TYPES = ("STRING", "STRING", "DICT", "STRING")
+    RETURN_NAMES = ("video_url", "prediction_id", "payload", "custom_prefix")
 
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
                 "atlas_client": ("ATLAS_CLIENT",),
+                "model": (
+                    _MODELS,
+                    {
+                        "default": MODEL_ID_SEEDANCE_25_FLASH_R2V,
+                        "tooltip": "Select AtlasCloud model ID",
+                    },
+                ),
                 "reference_images": (
                     "STRING",
                     {"multiline": True, "default": "", "tooltip": "0+ image URLs/base64/asset://, one per line (up to 30)"},
@@ -54,6 +65,14 @@ class AtlasSeedance25FlashReferenceToVideo:
                 "watermark": ("BOOLEAN", {"default": False, "tooltip": "Add watermark"}),
                 "return_last_frame": ("BOOLEAN", {"default": False, "tooltip": "Return last frame (if supported)"}),
                 "output_format": (["mp4", "mov"], {"default": "mp4", "tooltip": "Output container format"}),
+                "custom_prefix": (
+                    "STRING",
+                    {
+                        "multiline": False,
+                        "default": "",
+                        "tooltip": "Optional label/prefix passed directly to the custom_prefix output",
+                    },
+                ),
                 "poll_interval_sec": (
                     "FLOAT",
                     {"default": 2.0, "min": 0.5, "max": 10.0, "tooltip": "Polling interval (seconds)"},
@@ -68,6 +87,7 @@ class AtlasSeedance25FlashReferenceToVideo:
     def run(
         self,
         atlas_client: AtlasClientHandle,
+        model: str,
         reference_images: str,
         reference_videos: str,
         prompt: str = "The character in image 1 dances gracefully to the music",
@@ -79,9 +99,10 @@ class AtlasSeedance25FlashReferenceToVideo:
         watermark: bool = False,
         return_last_frame: bool = False,
         output_format: str = "mp4",
+        custom_prefix: str = "",
         poll_interval_sec: float = 2.0,
         timeout_sec: int = 900,
-    ) -> Tuple[str, str]:
+    ) -> Tuple[str, str, Dict[str, Any], str]:
         ref_imgs: List[str] = [v.strip() for v in (reference_images or "").splitlines() if v.strip()]
         ref_vids: List[str] = [v.strip() for v in (reference_videos or "").splitlines() if v.strip()]
         if not ref_imgs and not ref_vids:
@@ -90,7 +111,7 @@ class AtlasSeedance25FlashReferenceToVideo:
         client = atlas_client.client
 
         payload: Dict[str, Any] = {
-            "model": "bytedance/seedance-2.5-flash/reference-to-video",
+            "model": (model or MODEL_ID_SEEDANCE_25_FLASH_R2V).strip(),
             "duration": int(duration),
             "resolution": resolution,
             "ratio": ratio,
@@ -130,4 +151,4 @@ class AtlasSeedance25FlashReferenceToVideo:
                 f"Unexpected output type for prediction {prediction_id}: {type(first).__name__} {first!r}"
             )
 
-        return (first, prediction_id, payload)
+        return (first, prediction_id, payload, custom_prefix)
